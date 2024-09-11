@@ -1,0 +1,935 @@
+---
+title: "Montagem da base"
+author: "Matheus Bispo de Pinho"
+date: "2024-09-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Ajustes iniciais
+`
+
+## Instalação dos pacotes
+```{r}
+library(tidyverse)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+library(magrittr)
+library(mice)
+library(plm)
+library(readr)
+library(readxl)
+library(psych)
+```
+# Importar bases de dados
+
+```{r}
+government_tertiary_education <- read.csv("government-tertiary-education.csv")
+PATENTES_MILHÃO_HABITANTE <- read_xlsx("PATENTES-MILHÃO-HABITANTE.xlsx")
+pesquisadores <- read_xlsx("PESQUISADORES-MILHAO-HABITANTES.xlsx")
+pib_per_capita <- read_xlsx("PIB-PER-CAPITA-PPP-CORRENTE.xlsx")
+taxa_emprego <- read_xlsx("TAXA-EMPREGO-TOTAL.xlsx")
+scimagojr_2000 <- read_xlsx("scimagojr country rank 2000.xlsx")
+scimagojr_2001 <- read_xlsx("scimagojr country rank 2001.xlsx")
+scimagojr_2002 <- read_xlsx("scimagojr country rank 2002.xlsx")
+scimagojr_2003 <- read_xlsx("scimagojr country rank 2003.xlsx")
+scimagojr_2004 <- read_xlsx("scimagojr country rank 2004.xlsx")
+scimagojr_2005 <- read_xlsx("scimagojr country rank 2005.xlsx")
+scimagojr_2006 <- read_xlsx("scimagojr country rank 2006.xlsx")
+scimagojr_2007 <- read_xlsx("scimagojr country rank 2007.xlsx")
+scimagojr_2008 <- read_xlsx("scimagojr country rank 2008.xlsx")
+scimagojr_2009 <- read_xlsx("scimagojr country rank 2009.xlsx")
+scimagojr_2010 <- read_xlsx("scimagojr country rank 2010.xlsx")
+scimagojr_2011 <- read_xlsx("scimagojr country rank 2011.xlsx")
+scimagojr_2012 <- read_xlsx("scimagojr country rank 2012.xlsx")
+scimagojr_2013 <- read_xlsx("scimagojr country rank 2013.xlsx")
+scimagojr_2014 <- read_xlsx("scimagojr country rank 2014.xlsx")
+scimagojr_2015 <- read_xlsx("scimagojr country rank 2015.xlsx")
+scimagojr_2016 <- read_xlsx("scimagojr country rank 2016.xlsx")
+scimagojr_2017 <- read_xlsx("scimagojr country rank 2017.xlsx")
+scimagojr_2018 <- read_xlsx("scimagojr country rank 2018.xlsx")
+scimagojr_2019 <- read_xlsx("scimagojr country rank 2019.xlsx")
+scimagojr_2020 <- read_xlsx("scimagojr country rank 2020.xlsx")
+scimagojr_2021 <- read_xlsx("scimagojr country rank 2021.xlsx")
+scimagojr_2022 <- read_xlsx("scimagojr country rank 2022.xlsx")
+gasto_total_pd <- read_xls("gasto_total_pd.xls")
+invest_publico_pd_pib <- read_xlsx("INVESTIMENTO-PUBLICO-PD_PIB.xlsx")
+invest_privado_pd_pib <- read_xlsx("INVESTIMENTO-PRIVADO-PD-PIB.xlsx")
+investimento_edusup_pd_pib <- read_xlsx("INVESTIMENTO-EDUSUP-PD-PIB.xlsx")
+POPULACAO <- read_xlsx("POPULACAO.xlsx")
+
+```
+
+
+# Montagem da base
+
+## Extração e limpeza do conjunto de dados da variável gastos com educação como percentual do PIB
+
+### Seleção das colunas de referência
+
+```{r}
+glimpse(government_tertiary_education)
+```
+
+
+```{r}
+gastos_educacao <- government_tertiary_education %>% 
+  select(Entity, Year, `Government.expenditure.on.tertiary.education.as.a.percentage.of.GDP....`)
+```
+
+### Tradução dos rótulos das colunas
+
+```{r}
+gastos_educacao <- gastos_educacao %>% 
+  rename(gastos_educ_pib =`Government.expenditure.on.tertiary.education.as.a.percentage.of.GDP....`)
+  
+```
+
+```{r}
+gastos_educacao <- gastos_educacao %>% 
+  rename(ano = Year)
+```
+
+```{r}
+gastos_educacao <- gastos_educacao %>% 
+  rename(país = Entity)
+```
+
+### Limpeza dos rótulos com o uso do pacote janitor
+
+```{r}
+gastos_educacao <- clean_names(gastos_educacao)
+```
+
+### Seleção dos países a serem analisados
+
+```{r}
+gastos_educacao <- gastos_educacao %>%
+  filter(pais %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+### Seleção do recorte temporal estabelecido
+
+```{r}
+gastos_educacao <- gastos_educacao %>%
+  filter(ano %in% c(2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023))
+```
+
+### Harmonização dos nomes dos países
+
+```{r}
+gastos_educacao <- gastos_educacao %>% 
+  mutate(pais = case_when(
+    pais == "Bolivia" ~ "Bolívia",
+    pais == "Brazil" ~ "Brasil",
+    pais == "Colombia" ~ "Colômbia",
+    pais == "Ecuador" ~ "Equador",
+    pais == "Paraguay" ~ "Paraguai",
+    pais == "Uruguay" ~ "Uruguai",
+    TRUE ~ pais  
+  ))
+```
+
+## Extração e limpeza do conjunto de dados da variável patentes por milhão de habitantes
+
+### Implementação da função clean names para limpar os rótulos
+```{r}
+patentes <- clean_names(PATENTES_MILHÃO_HABITANTE)
+```
+
+### Implementação da função pivot longer aos dado de patentes
+
+```{r}
+
+patentes <- patentes %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "n_patentes"
+  )
+
+patentes$ano <- sub("x", "", patentes$ano)
+```
+
+## Extração e limpeza do conjunto de dados da variável patentes por milhão de habitantes
+
+### Limpeza dos rótulos com a função janitor
+
+```{r}
+pesquisadores <- clean_names(pesquisadores)
+```
+
+```{r}
+glimpse(pesquisadores)
+```
+### Selecionar colunas de interesse
+
+```{r}
+pesquisadores <- pesquisadores %>% 
+  select(country_estandar, years_estandar, value)
+```
+
+### Ajustar rótulos das colunas
+
+```{r}
+pesquisadores <- pesquisadores %>%
+  rename(ano = years_estandar)
+
+pesquisadores <- pesquisadores %>%
+  rename(pais = country_estandar)
+```
+
+```{r}
+pesquisadores <- pesquisadores %>% 
+    rename(pesquisadores_pop = value)
+```
+
+
+### Harmonizar nomes dos países
+
+```{r}
+pesquisadores <- pesquisadores %>% 
+  mutate(pais = case_when(
+    pais == "Bolivia (Plurinational State of)" ~ "Bolívia",
+    pais == "Brazil" ~ "Brasil",
+    pais == "Colombia" ~ "Colômbia",
+    pais == "Ecuador" ~ "Equador",
+    pais == "Paraguay" ~ "Paraguai",
+    pais == "Uruguay" ~ "Uruguai",
+    pais == "Venezuela (Bolivarian Republic of)" ~ "Venezuela",
+    TRUE ~ pais  
+  ))
+```
+
+
+
+## Extração e limpeza do conjunto de dados da variável pib per capita
+
+### Limpeza dos nomes com o uso da função janitor
+
+
+```{r}
+pib_per_capita <- clean_names(pib_per_capita)
+```
+
+
+### Implementação da função pivot longer
+
+```{r}
+pib_per_capita <- pib_per_capita %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "pib_per_capita"
+  )
+```
+
+
+```{r}
+pib_per_capita$ano <- sub("x", "", pib_per_capita$ano)
+```
+
+```{r}
+pib_per_capita <- pib_per_capita %>% 
+   mutate(pais = case_when(
+    pais == "Bolivia" ~ "Bolívia" ,
+    TRUE ~ pais  
+  ))
+```
+
+## Extração e limpeza do conjunto de dados da variável taxa de emprego
+
+### Limpeza dos nomes com o uso da função janitor
+
+```{r}
+taxa_emprego <-  clean_names(taxa_emprego)
+```
+
+### Implementação da função pivot longer
+
+```{r}
+taxa_emprego <- taxa_emprego %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "taxa_emprego"
+  )
+```
+
+
+```{r}
+taxa_emprego$ano <- sub("x", "", taxa_emprego$ano)
+```
+
+## Montagem da base de produção acadêmica
+
+
+### Seleção das colunas de interesse
+
+```{r}
+scimagojr_2000 <- scimagojr_2000 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2001 <- scimagojr_2001 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2002 <- scimagojr_2002 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2003 <- scimagojr_2003 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2004 <- scimagojr_2004 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2005 <- scimagojr_2005 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2006 <- scimagojr_2006 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2007 <- scimagojr_2007 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2008 <- scimagojr_2008 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2009 <- scimagojr_2009 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2010 <- scimagojr_2010 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2011 <- scimagojr_2011 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2012 <- scimagojr_2012 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2013 <- scimagojr_2013 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2014 <- scimagojr_2014 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2015 <- scimagojr_2015 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2016 <- scimagojr_2016 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2017 <- scimagojr_2017 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2018 <- scimagojr_2018 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2019 <- scimagojr_2019 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2020 <- scimagojr_2020 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2021 <- scimagojr_2021 %>% 
+  select("Country", "Documents")
+```
+
+```{r}
+scimagojr_2022 <- scimagojr_2022 %>% 
+  select("Country", "Documents")
+```
+
+### Criar coluna ano
+
+```{r}
+scimagojr_2000 <- scimagojr_2000 %>%
+  mutate(ano = 2000)
+```
+
+```{r}
+scimagojr_2001 <- scimagojr_2001 %>%
+  mutate(ano = 2001)
+```
+
+```{r}
+scimagojr_2002 <- scimagojr_2002 %>%
+  mutate(ano = 2002)
+```
+
+```{r}
+scimagojr_2003 <- scimagojr_2003 %>%
+  mutate(ano = 2003)
+```
+
+```{r}
+scimagojr_2004 <- scimagojr_2004 %>%
+  mutate(ano = 2004)
+```
+
+```{r}
+scimagojr_2005 <- scimagojr_2005 %>%
+  mutate(ano = 2005)
+```
+
+```{r}
+scimagojr_2006 <- scimagojr_2006 %>%
+  mutate(ano = 2006)
+```
+
+```{r}
+scimagojr_2007 <- scimagojr_2007 %>%
+  mutate(ano = 2007)
+```
+
+```{r}
+scimagojr_2008 <- scimagojr_2008 %>%
+  mutate(ano = 2008)
+```
+
+```{r}
+scimagojr_2009 <- scimagojr_2009 %>%
+  mutate(ano = 2009)
+```
+
+```{r}
+scimagojr_2010 <- scimagojr_2010 %>%
+  mutate(ano = 2010)
+```
+
+```{r}
+scimagojr_2011 <- scimagojr_2011 %>%
+  mutate(ano = 2011)
+```
+
+```{r}
+scimagojr_2012 <- scimagojr_2012 %>%
+  mutate(ano = 2012)
+```
+
+```{r}
+scimagojr_2013 <- scimagojr_2013 %>%
+  mutate(ano = 2013)
+```
+
+```{r}
+scimagojr_2014 <- scimagojr_2014 %>%
+  mutate(ano = 2014)
+```
+
+```{r}
+scimagojr_2015 <- scimagojr_2015 %>%
+  mutate(ano = 2015)
+```
+
+```{r}
+scimagojr_2016 <- scimagojr_2016 %>%
+  mutate(ano = 2016)
+```
+
+```{r}
+scimagojr_2017 <- scimagojr_2017 %>%
+  mutate(ano = 2017)
+```
+
+```{r}
+scimagojr_2018 <- scimagojr_2018 %>%
+  mutate(ano = 2018)
+```
+
+```{r}
+scimagojr_2019 <- scimagojr_2019 %>%
+  mutate(ano = 2019)
+```
+
+```{r}
+scimagojr_2020 <- scimagojr_2020 %>%
+  mutate(ano = 2020)
+```
+
+```{r}
+scimagojr_2021 <- scimagojr_2021 %>%
+  mutate(ano = 2021)
+```
+
+```{r}
+scimagojr_2022 <- scimagojr_2022 %>%
+  mutate(ano = 2022)
+```
+
+
+### Filtrar país
+
+```{r}
+scimagojr_2000 <- scimagojr_2000 %>%
+  filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2001 <- scimagojr_2001 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2002 <- scimagojr_2002 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2003 <- scimagojr_2003 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2004 <- scimagojr_2004 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2005 <- scimagojr_2005 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2006 <- scimagojr_2006 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2007 <- scimagojr_2007 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2008 <- scimagojr_2008 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2009 <- scimagojr_2009 %>%
+  filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2010 <- scimagojr_2010 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2011 <- scimagojr_2011 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2012 <- scimagojr_2012 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2013 <- scimagojr_2013 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2014 <- scimagojr_2014 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2015 <- scimagojr_2015 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2016 <- scimagojr_2016 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2017 <- scimagojr_2017 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2018 <- scimagojr_2018 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2019 <- scimagojr_2019 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador","Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2020 <- scimagojr_2020 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2021 <- scimagojr_2021 %>%
+   filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+```{r}
+scimagojr_2022 <- scimagojr_2022 %>%
+  filter(Country %in% c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"))
+```
+
+
+### Juntar os conjuntos de dados sobre produção acadêmica entre 2000 e 2022
+
+```{r}
+producao_academica <- bind_rows(scimagojr_2000, scimagojr_2001, scimagojr_2002, scimagojr_2003, scimagojr_2004, scimagojr_2005, scimagojr_2006, scimagojr_2007, scimagojr_2008, scimagojr_2009, scimagojr_2010, scimagojr_2011, scimagojr_2012, scimagojr_2013, scimagojr_2014, scimagojr_2015, scimagojr_2016, scimagojr_2017, scimagojr_2018, scimagojr_2019, scimagojr_2020, scimagojr_2021, scimagojr_2022)
+```
+
+### Ajustar a ordem do conjunto de dados
+
+```{r}
+producao_academica <- producao_academica %>%
+  select("Country", "ano", "Documents")
+```
+
+### Limpeza dos rótulos com o uso do janitor
+
+```{r}
+producao_academica <- clean_names(producao_academica)
+```
+
+### Ajuste dos rótulos das colunas
+
+```{r}
+producao_academica <- producao_academica %>% 
+  rename(pais = country)
+```
+
+```{r}
+producao_academica <- producao_academica %>% 
+  rename(publicacoes_academicas = documents)
+```
+
+
+### Harmonizar os nomes dos países
+
+```{r}
+producao_academica <- producao_academica %>% 
+   mutate(pais = case_when(
+    pais == "Bolivia" ~ "Bolívia",
+    pais == "Brazil" ~ "Brasil",
+    pais == "Colombia" ~ "Colômbia",
+    pais == "Ecuador" ~ "Equador",
+    pais == "Paraguay" ~ "Paraguai",
+    pais == "Uruguay" ~ "Uruguai",
+       TRUE ~ pais  
+  ))
+```
+
+
+## Extração e limpeza do conjunto de dados da variável gastos publicos com pesquisa e desenvolvimento (P&D)
+
+
+```{r}
+invest_publico_pd_pib <- clean_names(invest_publico_pd_pib)
+```
+
+
+### Ajustar a base para formato long
+
+```{r}
+invest_publico_pd_pib <- invest_publico_pd_pib %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "gasto_publico_pd"
+  )
+
+invest_publico_pd_pib$ano <- sub("x", "", invest_publico_pd_pib$ano)
+```
+
+
+### Harmonizar os nomes dos países
+
+```{r}
+invest_publico_pd_pib <- invest_publico_pd_pib %>% 
+   mutate(pais = case_when(
+    pais == "Bolivia" ~ "Bolívia" ,
+    TRUE ~ pais  
+  ))
+```
+
+## Extração e limpeza do conjunto de dados da variável gastos privados com pesquisa e desenvolvimento (P&D)
+
+
+### Ajustar a base para formato long
+
+```{r}
+invest_privado_pd_pib <- clean_names(invest_privado_pd_pib)
+```
+
+
+```{r}
+invest_privado_pd_pib <- invest_privado_pd_pib %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "gasto_privado_pd"
+  )
+```
+
+
+```{r}
+invest_privado_pd_pib$ano <- sub("x", "", invest_privado_pd_pib$ano)
+```
+
+### Harmonizar nomes dos países]
+
+```{r}
+invest_privado_pd_pib <- invest_privado_pd_pib %>% 
+   mutate(pais = case_when(
+    pais == "Bolivia" ~ "Bolívia" ,
+    TRUE ~ pais  
+  ))
+```
+## Extração e limpeza do conjunto de dados da variável gastos da educação superior com pesquisa e desenvolvimento (P&D)
+
+### Limpar rótulos com a função janitor
+
+```{r}
+investimento_edusup_pd_pib <- clean_names(investimento_edusup_pd_pib)
+```
+
+
+### Ajustar a base para formato long
+
+
+```{r}
+investimento_edusup_pd_pib <- investimento_edusup_pd_pib %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "gasto_edusu_pd"
+  )
+```
+
+
+```{r}
+investimento_edusup_pd_pib$ano <- sub("x", "", investimento_edusup_pd_pib$ano)
+```
+
+### Harmonizar nomes dos países 
+
+```{r}
+investimento_edusup_pd_pib <- investimento_edusup_pd_pib %>% 
+   mutate(pais = case_when(
+    pais == "Bolivia" ~ "Bolívia" ,
+    TRUE ~ pais  
+  ))
+```
+## Extração e limpeza do conjunto de dados da variável população
+
+### Limpar rótulos com a função janitor
+
+```{r}
+populacao <- clean_names(POPULACAO)
+```
+
+
+### Ajustar a base para formato long
+
+
+```{r}
+populacao <- populacao %>%
+  pivot_longer(
+    cols = starts_with("x"),
+    names_to = "ano",
+    values_to = "populacao"
+  )
+```
+
+
+```{r}
+populacao$ano <- sub("x", "", populacao$ano)
+```
+
+### Harmonização dos nomes dos países
+
+```{r}
+populacao <- populacao %>% 
+  mutate(pais = case_when(
+    pais == "Brazil" ~ "Brasil",
+    pais == "Colombia" ~ "Colômbia",
+    pais == "Paraguay" ~ "Paraguai",
+    pais == "Uruguay" ~ "Uruguai",
+    TRUE ~ pais  
+  ))
+```
+## Montar base inicial
+
+### Ajustar o tipo dos dados
+
+
+```{r}
+gastos_educacao$ano <- as.numeric(gastos_educacao$ano)
+
+patentes$ano <- as.numeric(patentes$ano)
+
+pesquisadores$ano <- as.numeric(pesquisadores$ano)
+
+pib_per_capita$ano <- as.numeric(pib_per_capita$ano)
+
+producao_academica$ano <- as.numeric(producao_academica$ano)
+
+taxa_emprego$ano <- as.numeric(taxa_emprego$ano)
+
+
+invest_privado_pd_pib$ano <- as.numeric(invest_privado_pd_pib$ano)
+
+invest_publico_pd_pib$ano <- as.numeric(invest_publico_pd_pib$ano)
+
+investimento_edusup_pd_pib$ano <- as.numeric(investimento_edusup_pd_pib$ano)
+
+populacao$ano <- as.numeric(populacao$ano)
+```
+
+### Junção dos conjuntos de dados das variáveis
+
+```{r}
+painel_inovacao <- left_join(patentes, gastos_educacao, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, pesquisadores, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, pib_per_capita, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, producao_academica, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, taxa_emprego, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, invest_privado_pd_pib, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, invest_publico_pd_pib, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, investimento_edusup_pd_pib, by = c("pais", "ano"))
+```
+
+```{r}
+painel_inovacao <- left_join(painel_inovacao, populacao, by = c("pais", "ano"))
+```
+
+### Seleção recorte temporal adequado 
+
+```{r}
+painel_inovacao <- painel_inovacao %>%
+  filter(!(ano %in% c(2021, 2022)))
+```
+
+
+
+### Ajuste valores da coluna gasto_educ_pib
+
+```{r}
+painel_inovacao <- painel_inovacao %>%
+  mutate(gastos_educ_pib = gastos_educ_pib / 100)
+```
+
+### Ajustando variável produções_academicas por milhão de habitantes
+
+```{r}
+painel_inovacao$publicacoes_academicas <- as.numeric(painel_inovacao$publicacoes_academicas)
+painel_inovacao$populacao <- as.numeric(painel_inovacao$populacao)
+```
+
+```{r}
+painel_inovacao <- painel_inovacao %>%
+  mutate(pop_milhao = populacao / 1000000)
+```
+
+```{r}
+painel_inovacao$pop_milhao <- as.numeric(painel_inovacao$pop_milhao)
+```
+
+```{r}
+painel_inovacao <- painel_inovacao %>% 
+  mutate(publicacoes_pop = publicacoes_academicas/pop_milhao)
+```
+
+
+
+
+### Remover colunas 
+
+```{r}
+painel_inovacao <- painel_inovacao %>% 
+  select (-populacao)
+```
+
+```{r}
+painel_inovacao <- painel_inovacao %>% 
+  select (-publicacoes_academicas)
+```
+
+
+
+# Salvando as duas bases de interesse
+
+```{r}
+writexl::write_xlsx(painel_inovacao, "painel_inovacao.xlsx")
+
+```

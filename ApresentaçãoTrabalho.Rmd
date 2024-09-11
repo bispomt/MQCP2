@@ -1,0 +1,764 @@
+---
+title: "O impacto dos gastos públicos nos resultados nacionais de inovação: uma análise comparativa dos países membros e associados do Mercosul através de dados em painel"
+author: "Matheus Bispo de Pinho"
+date: "2024-09-09"
+output:
+  slidy_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+```
+
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+library(magrittr)
+library(mice)
+library(plm)
+library(readr)
+library(readxl)
+library(psych)
+library(tibble)
+library(flextable)
+library(pls)
+library(foreign)
+library(gplots)
+library(flexdashboard)
+```
+
+```{r include=FALSE}
+painel_inovacao <- read_xlsx("painel_inovacao.xlsx")
+```
+
+# Resumo
+
+O presente trabalho buscou identificar se os investimentos públicos em Pesquisa e Desenvolvimento (P&D) possuíram efeitos significativos nos resultados dos processos de inovação realizados nos países membros e associados ao Mercosul no período entre 2000 e 2020. Essa avaliação se mostrou relevante ao passo que a inovação é apresentada como principal fator do crescimento econômico sustentável. Com esse objetivo dois outputs tradicionais do processo de inovação - número de patentes e publicações acadêmicas - foram utilizados como variáveis dependentes.
+
+Para tal foi construído painel de dados com base em múltiplas fontes de dados, compatibilizadas com base nas informações do método de cálculo dos indicadores e dos dicionários de dados. O painel base - não balanceado - foi imputado de forma a se suprir as observações ausentes e gerar um painel balanceado. 
+
+Os paineis balanceados e não balanceados foram submetidos a alguns métodos econométricos - Mínimos Quadrados Ordinários (MQO), Efeitos Fixos controlados com variáveis Dummy, Modelo de Efeitos Fixos e Modelo de Efeitos Aleatórios.
+
+Os resultados obtidos nos quatro métodos foram comparados com base no painel de origem. O resultado foi que as variáveis mais relevantes para os resultados foram pib per capita e o número de pesquisadores por milhão de habitantes (proxy da força de trabalho envolvida em inovação). Os gastos em P&D, instrumento tradicional das políticas públicas de inovação, possuíram efeito significativo, em maior nível os gastos privados e em um segundo nível os gastos públicos.
+
+---
+
+# Introdução
+
+## Objeto
+
+O presente trabalho possui como objeto de investigação os gastos públicos em pesquisa e desenvolvimento no contexto da América do Sul, notadamente dos países membros do Mercosul - Argentina, Brasil, Paraguai, Uruguai e Venezuela - e dos associados ao bloco - Bolívia, Chile, Colômbia, Equador e Peru.Analisando o impacto desses gastos nos resultados dos processos de inovação - apresentados aqui através de duas variáveis d(Número de patentes e Número de publicações acadêmicas).
+
+A tabela a seguir apresenta a evolução das variáveis dependentes - "Número de patentes" e "Número de publicações acadêmicas"
+
+### Evolução do número de patentes por país
+
+
+```{r echo=FALSE, fig.align='center', fig.height=4, fig.width=6}
+ggplot(painel_inovacao, aes(x = ano, y = n_patentes)) +
+  geom_point() +
+  facet_wrap(~ pais) +
+  labs(title = "Evolução do número de patentes por país",
+       x = "Ano",
+       y = "Número de patentes por milhão de habitante") +
+    theme_light() + 
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+---
+
+### Evolução publicações acadêmicas por milhão de habitantes
+
+
+```{r echo=FALSE, fig.align='center', fig.height=4, fig.width=6}
+ggplot(painel_inovacao, aes(x = ano, y = publicacoes_pop)) +
+  geom_line() +
+  facet_wrap(~ pais) +
+  labs(title = "Evolução publicações acadêmicas por por país",
+       x = "Ano",
+       y = "Número de publicações acadêmicas por milhão de habitante") +
+    theme_light() + 
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+---
+
+## Objetivos
+
+O principal objetivo do trabalho é responder à seguinte questão de pesquisa, "Os investimentos públicos em Pesquisa e Desenvolvimento (P&D) possuíram efeitos significativos nos resultados dos processos de inovação realizados nos países membros e associados ao Mercosul no período entre 2000 e 2020?"
+
+## Contexto 
+
+Consta do Manual de Oslo que “apenas recentemente surgiram políticas de inovação como um amálgama de políticas de ciência e tecnologia e política industrial. Seu surgimento sinaliza um crescente reconhecimento de que o conhecimento, em todas as suas formas, desempenha um papel crucial no progresso econômico, que a inovação está no âmago dessa “economia baseada no conhecimento”, que a inovação é um fenômeno muito mais complexo e sistêmico do que se imaginava anteriormente. As abordagens sistêmicas à inovação deslocam o foco das políticas, dando ênfase à interação das instituições, observando processos interativos, tanto na criação do conhecimento, como em sua difusão e aplicação. Cunhou-se o termo “Sistema Nacional de Inovações” para este conjunto de instituições e fluxos de conhecimento”
+
+Cassiolato e Lastres (2000) apresentam que a noção de sistemas de inovação se baseia no argumento de que mudanças técnicas são tanto determinantes quanto determinadas pelo ambiente institucional em um processo interativo e que a análise de distintos sistemas nacionais de inovação é fundamental para entender por que o dinamismo tecnológico ocorre de forma mais rápida e eficiente em alguns países do que em outros. 
+
+---
+
+A diversidade é conceito central nos sistemas de inovação, cada país possui um conjunto de fatores que influenciam seus processos de inovação. Cassiolato e Lastres (2000) ao abordar os estudos realizados no âmbito da América Latina e no Caribe apresentaram que a literatura reiterou alguns desses fatores, comuns aos países em desenvolvimento, como a vulnerabilidade macroeconômica, política, institucional e financeira, além dos cenários de hiperinflação, alta dívida externa e altas taxas de juros. 
+
+Em linha com o crescimento da economia baseada no conhecimento e no reconhecimento da inovação como um fenômeno relevante e que perpassa a atuação de múltiplos atores, um amplo conjunto de países estabeleceram políticas de inovação, orientadas pelos governos, mas com relevante participação de atores privados.
+
+No ano de 2020 foi institucionalizada no Brasil a Política Nacional de Inovação (PNI), com intuito de “ser uma base para a organização das atividades do Estado relacionadas ao apoio à inovação”. No ano de 2023, foi aprovado na Argentina o “Plan Nacional de Ciencia, Tecnología e Innovación 2030” com objetivo de “impulsionar a geração e gestão do conhecimento para a inovação social e produtiva inclusiva e sustentável”. Essas duas iniciativas se inserem em um amplo conjunto de ações implementadas em países sul-americanos nos últimos anos, o que demonstra a crescente preocupação com o tema da inovação.
+
+---
+
+Esse processo é especialmente relevante devido à sua influência para o crescimento econômico. No contexto da América Latina ressalta-se dado apresentado no relatório “Why Does Latin America Underperform?” (G30, 2023) sobre o crescimento da região entre 1990 e 2019, com um crescimento médio do produto per capita de 1,73% ao ano, pouco acima do desempenho das economias avançadas (1,68% a.a.) e abaixo da Ásia Emergente (3,90% a.a.). Nessa linha, o avanço do conhecimento tecnológico foi identificado como o fator mais importante para a produtividade a longo prazo e o crescimento econômico (Grubler et al., 1999 apud Greenacre et al, 2012). 
+
+Para Pacheco e Almeida (2013) há um amplo e crescente consenso, público e privado, da relevância da inovação tanto para a competitividade de cada empresa brasileira, como para o aumento da produtividade em geral. A inovação tem essa dupla faceta — é relevante em termos micro e em termos macroeconômicos. (Pachedo e Almeida, 2013).
+
+A questão da inovação já foi trabalhada sob diversas óticas ao longo dos anos. Contribuição proeminente foi realizado por Schumpeter (1997), um dos grandes expoentes da pesquisa em desenvolvimento, que apresenta o papel central da inovação tecnológica no desenvolvimento econômico de um país. Outrossim, diversas teorias foram elaboradas de forma a captar as diversas dinâmicas envolvidas no processo de inovação. No presente artigo foi considerada a perspectiva sistêmica, que entende a inovação como um processo sistêmico, dinâmico, não linear que envolve diversos atores que interagem entre si (Greenacre, 2012). 
+
+---
+
+Deve aqui ainda ser ressaltado um modelo proeminente nos estudos em inovação, o modelo da Hélice Tripla, que enfatiza que “as interações universidade-indústria-governo, que formam uma “hélice tríplice” de inovação e empreendedorismo, são a chave para o crescimento econômico e o desenvolvimento social baseados no conhecimento” (Etzkowitz e Zhou, 2021). O presente estudo busca enfatizar o papel de uma dessas “hélices”, o governo. 
+
+Diversos são os instrumentos e formas que os atores governamentais influenciam nas dinâmicas de inovação, como através de apoio e parcerias destinadas a realização de projetos específicos, apoio a atividades de P&D no setor privado através de incentivos fiscais e subvenções e na realização de P&D no âmbito governamental. 
+
+---
+
+## Método
+
+Foi elaborado painel de dados tendo por unidade os países membros do Mercosul - Argentina, Brasil, Paraguai, Uruguai e Venezuela - e dos associados ao bloco - Bolívia, Chile, Colômbia, Equador e Peru.Considerando o recorte temporal de 2000 a 2020 foram extraídas algumas variáveis de bases diversas. O cabeçalho da base de dados consta da tabela a seguir.
+
+### Base de dados construída 
+
+A base de dados utilizada foi estruturada como se segue.
+
+```{r echo=FALSE}
+glimpse(painel_inovacao)
+```
+
+---
+
+### Tabela de Variáveis 
+
+```{r include=FALSE}
+# Construindo a tabela
+
+tabela_variaveis <- flextable(data.frame(
+  VARIÁVEL = c(
+    "Patentes", 
+    "Produção Acadêmica", 
+    "Investimentos do setor público em P&D",
+    "Investimentos das instituições de ensino superior em P&D",
+    "Investimento do setor produtivo com P&D",
+    "PIB per capita",
+    "Taxa de emprego",
+    "Gasto Nacional com Educação Superior",
+    "População",
+    "Pesquisadores"
+  ),
+  TIPO = c(
+    "Dependente", 
+    "Dependente", 
+    "Independente",
+    "Independente",
+    "Independente",
+    "Independente",
+    "Independente",
+    "Independente",
+    "Independente",
+    "Independente"
+  ),
+  DESCRIÇÃO = c(
+    "Número de aplicações de patentes por países com base na origem do aplicante.",
+    "Quantidade anual de documentos acadêmicos publicados dividido por milhão de habitantes",
+    "Investimentos realizados pelo setor público em Pesquisa e Desenvolvimento (P&D). Apresentado como percentual do PIB do país de referência.",
+    "Investimentos realizados pelas instituições de ensino superior em Pesquisa e Desenvolvimento (P&D). Apresentado como percentual do PIB do país de referência.",
+    "Investimentos realizados pelo setor produtivo em Pesquisa e Desenvolvimento (P&D). Apresentado como percentual do PIB do país de referência.",
+    "Produto Interno Bruto (PIB) per capita apresentado considerando a Paridade do Poder de Compra (PPC)",
+    "Proporção da população em idade ativa do país que está empregada",
+    "Gastos governamentais em educação superior – níveis 5 a 8 do Padrão Internacional de Classificação da Educação. Apresentado como percentual do PIB do país de referência.",
+    "População total do país dividida por 1.000.000",
+    "Número de pesquisadores na área de P&D por milhão de habitantes"
+  ),
+  FONTE = c(
+    "WIPO IP Statistics Data Center - Resident applications per million population (by origin)",
+    "SJR – International Science Ranking (scimagojr.com) – Country Ranks",
+    "1. OECD Data Explorer – Gross domestic expenditure on R&D by sector of performance and source of funds; 2. Red de Indicadores de Ciencia y Tecnología Interamericana e Iberoamericana – Indicadores por país; 3. Portal Concytec Perú – Principales indicadores em CTI; 4. Indicadores Nacionais de Ciência, Tecnologia e Inovação do MCTI; 5. Indicadores de Ciencia y Tecnología de Paraguay 2017, 2020 e 2022; 6. Unesco – Research and experimental development (full dataset); 7. Evolución de la inversión en actividades de ciência e tecnologia em Uruguay 2005-2021 (ANII).",
+    "1. OECD Data Explorer – Gross domestic expenditure on R&D by sector of performance and source of funds; 2. Red de Indicadores de Ciencia y Tecnología Interamericana e Iberoamericana – Indicadores por país; 3. Portal Concytec Perú – Principales indicadores em CTI; 4. Indicadores Nacionais de Ciência, Tecnologia e Inovação do MCTI; 5. Indicadores de Ciencia y Tecnología de Paraguay 2017, 2020 e 2022; 6. Unesco – Research and experimental development (full dataset); 7. Evolución de la inversión en actividades de ciência e tecnologia em Uruguay 2005-2021 (ANII).",
+    "1. OECD Data Explorer – Gross domestic expenditure on R&D by sector of performance and source of funds; 2. Red de Indicadores de Ciencia y Tecnología Interamericana e Iberoamericana – Indicadores por país; 3. Portal Concytec Perú – Principales indicadores em CTI; 4. Indicadores Nacionais de Ciência, Tecnologia e Inovação do MCTI; 5. Indicadores de Ciencia y Tecnología de Paraguay 2017, 2020 e 2022; 6. Unesco – Research and experimental development (full dataset); 7. Evolución de la inversión em atividades de ciência e tecnologia em Uruguay 2005-2021 (ANII).",
+    "World Bank Open Data – GDP per capita, PPP (current international $)",
+    "World Bank Open Data – Employment to population ratio, 15+, total (%) (modeled ILO estimate)",
+    "Our World in Data – Government expenditure on tertiary education as share of GDP, 1970 to 2023",
+    "World Bank Open Data – Population, total",
+    "Unesco – Research and experimental development (full dataset)"
+  )
+))
+ 
+```
+
+
+```{r include=FALSE}
+ tabela_variaveis <- tabela_variaveis %>%
+  set_caption("Tabela de Variáveis") %>%
+  autofit() %>%
+  theme_vanilla()
+```
+
+
+```{r include=FALSE}
+tabela_variaveis <- set_table_properties(
+  x = tabela_variaveis,
+  width = 1,  
+  layout = "autofit"
+)
+```
+
+
+```{r include=FALSE}
+set_flextable_defaults(font.size = 6, split = TRUE)
+```
+
+Com base na literatura foram selecionados um conjunto de variáveis, a tabela a seguir apresenta a variável, o tipo, a descrição e as fontes utilizadas.
+
+```{r echo=FALSE}
+tabela_variaveis 
+```
+
+---
+
+Considerada a alta ausência de dados, devido as especificidades dos países envolvidos e a tradicional falta de dados ou descontinuidade das séries históricas de dados no contexto sul americano. Foi elaborado painel imputado através da técnica Multivariate Imputation by Chained Equations (MICE).
+
+### Imputação com o uso de Mice
+
+#### Verificação do padrão de ausências 
+
+```{r echo=FALSE}
+p_missing <- unlist(lapply(painel_inovacao, function(x) sum(is.na(x))))/nrow(painel_inovacao)
+sort(p_missing[p_missing > 0], decreasing = TRUE)
+```
+
+
+```{r include=FALSE}
+# Verificação dos modelos
+
+methods(mice)
+```
+
+```{r include=FALSE}
+
+#Imputação com método classification and regression trees (cart)
+
+imp_inovação_1 <- mice(data = painel_inovacao, m = 10, method = "cart", group = "pais", maxit = 50, seed = 500)
+```
+
+
+```{r include=FALSE}
+# Imputação com método  predictive mean matching (pmm)
+
+imp_inovação_2 <- mice(data = painel_inovacao, m = 10, method = "pmm", group = "pais", maxit = 50, seed = 500)
+
+```
+
+
+### Inspeção imputações
+
+#### Imputação com método cart
+
+```{r include=FALSE}
+completo_inov_1 <- complete(imp_inovação_1, 1)
+```
+
+```{r echo=FALSE}
+densityplot (imp_inovação_1)
+```
+
+---
+#### Imputação com método pmm
+
+```{r include=FALSE}
+completo_inov_2 <- complete(imp_inovação_2, 1)
+```
+
+```{r echo=FALSE}
+densityplot(imp_inovação_2)
+```
+
+---
+```{r}
+#Gerando painel imputado
+
+painel_imputado <- complete(imp_inovação_1, 1)
+```
+
+---
+
+Considerando o exposto e os paineis balanceado e não balanceado, o presente trabalho objetivou implementar quatro tipos de modelos - "Ordinary Least Squares", "Fixed effects using Least squares dummy variable", " Fixed effects using within model", "Random effects".
+
+---
+
+# Resultados
+
+## Painel de dados balanceado
+
+### Comportamento da variável número de patentes entre os países 
+
+```{r echo=FALSE}
+coplot(n_patentes ~ ano|pais, type="l", data=painel_imputado) 
+coplot(n_patentes ~ ano|pais, type="b", data=painel_imputado) 
+```
+
+---
+
+### Verificação da heterogeneidade das variáveis dependente entre os países
+
+#### Número de patentes
+
+```{r echo=FALSE}
+plotmeans(n_patentes ~ pais, main="Heterogeneidade na produção de patentes entre países", data=painel_imputado)
+```
+
+---
+
+#### Número de publicações acadêmicas
+
+```{r echo=FALSE}
+plotmeans(publicacoes_pop ~ pais, main="Heterogeneidade na produção acadêmica entre países", data=painel_imputado)
+```
+
+---
+
+### Verificação da heterogeneidade das variáveis dependentes entre os anos
+
+#### Número de patentes
+
+```{r echo=FALSE}
+plotmeans(n_patentes ~ ano, main="Heterogeneidade na produção de patentes entre anos", data=painel_imputado)
+```
+
+---
+
+#### Número de publicações acadêmicas
+
+```{r echo=FALSE}
+plotmeans(publicacoes_pop ~ ano, main="Heterogeneidade na produção acadêmica entre anos", data=painel_imputado)
+```
+
+
+
+---
+
+```{r include=FALSE}
+### Regressões OLS
+
+# Regressão simples (OLS) com output de inovação - número de patentes
+
+reg_pb_ols_np <- lm(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_imputado)
+
+stargazer::stargazer(reg_pb_ols_np, type = "text")
+```
+
+
+
+```{r include=FALSE}
+# Regressão simples (OLS) com output de inovação - produção acadêmica
+
+reg_pb_ols_pa <- lm(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_imputado)
+
+stargazer::stargazer(reg_pb_ols_pa, type = "text")
+```
+
+
+```{r include=FALSE}
+
+reg_pb_dfe_np <- lm(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib + factor(pais) - 1, data = painel_imputado)
+
+stargazer::stargazer(reg_pb_dfe_np, type = "text")
+```
+
+
+```{r include=FALSE}
+reg_pb_dfe_pa <- lm(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib + factor(pais) - 1, data = painel_imputado)
+
+stargazer::stargazer(reg_pb_dfe_pa, type = "text")
+```
+
+
+### Análise de componentes principais - variável dependente número de patentes
+
+```{r include=FALSE}
+set.seed(38)
+```
+
+```{r echo=FALSE}
+modelo_patentes <- pcr(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + 
+                       gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + 
+                       gastos_educ_pib + factor(pais) - 1, 
+                       data = painel_imputado, 
+                       scale = TRUE,
+                       na.action = na.omit,
+                       validation = "CV")
+```
+
+```{r echo=FALSE}
+summary(modelo_patentes)
+```
+
+
+```{r echo=FALSE}
+validationplot(modelo_patentes)
+```
+
+
+```{r echo=FALSE}
+validationplot(modelo_patentes, val.type="MSEP")
+```
+
+
+```{r echo=FALSE}
+validationplot(modelo_patentes, val.type="R2")
+```
+
+---
+
+### Análise de componentes principais - variável dependente produção acadêmica
+
+```{r include=FALSE}
+set.seed(39)
+```
+
+```{r echo=FALSE}
+modelo_publicacoes <- pcr(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + 
+                       gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + 
+                       gastos_educ_pib + factor(pais) - 1, 
+                       data = painel_imputado, 
+                       scale = TRUE,
+                       na.action = na.omit,
+                       validation = "CV")
+```
+
+```{r echo=FALSE}
+summary(modelo_publicacoes)
+```
+
+
+```{r echo=FALSE}
+validationplot(modelo_publicacoes)
+```
+
+```{r echo=FALSE}
+validationplot(modelo_publicacoes, val.type="MSEP")
+```
+
+```{r echo=FALSE}
+validationplot(modelo_publicacoes, val.type="R2")
+```
+
+---
+
+
+```{r include=FALSE}
+#### Gerando o painel balanceado
+painel_df_imputado <- pdata.frame(painel_imputado, index = c("pais", "ano"), drop.index = TRUE, row.names = TRUE)
+head(painel_df_imputado)
+```
+
+
+```{r include=FALSE}
+#### Variável dependente - número de patentes
+
+##### Regressão controlando efeitos fixos com modelo within 
+
+reg_pb_fe_np <- plm(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_imputado, model = "within")
+
+stargazer::stargazer(reg_pb_fe_np, type = "text")
+``` 
+
+```{r include=FALSE}
+pFtest(reg_pb_fe_np, reg_pb_ols_np)
+```
+
+```{r include=FALSE}
+
+##### Regressão controlando efeitos aleatórios com modelo random
+
+reg_pb_re_np <- plm(log(n_patentes) ~  log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_imputado, model = "random")
+
+
+stargazer::stargazer(reg_pb_re_np, type = "text")
+```
+
+
+```{r include=FALSE}
+
+##### Teste de Hausman
+
+phtest(reg_pb_fe_np, reg_pb_re_np)
+```
+
+
+```{r include=FALSE}
+#### Variável dependente - publicações por milhão de habitantes
+
+##### Regressão controlando efeitos fixos com modelo within 
+
+reg_pb_fe_pa <- plm(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_imputado, model = "within")
+
+stargazer::stargazer(reg_pb_fe_pa, type = "text")
+``` 
+
+```{r include=FALSE}
+pFtest(reg_pb_fe_pa, reg_pb_ols_pa)
+```
+
+```{r include=FALSE}
+
+##### Regressão controlando efeitos aleatórios com modelo random
+
+reg_pb_re_pa <- plm(log(publicacoes_pop) ~  log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_imputado, model = "random")
+
+
+stargazer::stargazer(reg_pb_re_pa, type = "text")
+```
+
+
+```{r include=FALSE}
+##### Teste de Hausman
+
+phtest(reg_pb_fe_pa, reg_pb_re_pa)
+```
+
+## Painel de dados não balanceado
+
+### Comportamento da variável número de patentes entre os países 
+
+```{r echo=FALSE}
+coplot(n_patentes ~ ano|pais, type="l", data=painel_inovacao) 
+coplot(n_patentes ~ ano|pais, type="b", data=painel_inovacao) 
+```
+
+---
+
+### Verificação da heterogeneidade das variáveis dependente entre os países
+
+#### Número de patentes
+
+```{r echo=FALSE}
+plotmeans(n_patentes ~ pais, main="Heterogeneidade na produção de patentes entre países", data=painel_inovacao)
+```
+
+#### Número de publicações acadêmicas
+
+```{r echo=FALSE}
+plotmeans(publicacoes_pop ~ pais, main="Heterogeneidade na produção acadêmica entre países", data=painel_inovacao)
+```
+
+---
+
+### Verificação da heterogeneidade das variáveis dependentes entre os anos
+
+#### Número de patentes
+
+```{r echo=FALSE}
+plotmeans(n_patentes ~ ano, main="Heterogeneidade na produção de patentes entre anos", data=painel_inovacao)
+```
+
+#### Número de publicações acadêmicas
+
+```{r echo=FALSE}
+plotmeans(publicacoes_pop ~ ano, main="Heterogeneidade na produção acadêmica entre anos", data=painel_inovacao)
+```
+
+---
+
+```{r include=FALSE}
+### Regressões
+
+#### Regressão simples (OLS) com output de inovação - número de patentes
+
+reg_pub_ols_np <- lm(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_inovacao)
+
+stargazer::stargazer(reg_pub_ols_np, type = "text")
+```
+
+```{r include=FALSE}
+#### Regressão simples (OLS) com output de inovação - produção acadêmica
+
+reg_pub_ols_pa <- lm(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_inovacao)
+
+stargazer::stargazer(reg_pub_ols_pa, type = "text")
+```
+
+```{r include=FALSE}
+#### Regressão controlando efeitos fixos dos países com variável dummy com output de inovação - número de patentes
+
+reg_pub_dfe_np <- lm(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib + factor(pais) - 1, data = painel_inovacao)
+
+stargazer::stargazer(reg_pub_dfe_np, type = "text")
+```
+
+```{r include=FALSE}
+#### Regressão controlando efeitos fixos dos países com variável dummy com output de inovação - produção acadêmica
+
+reg_pub_dfe_pa <- lm(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib + factor(pais) - 1, data = painel_inovacao)
+
+stargazer::stargazer(reg_pub_dfe_pa, type = "text")
+```
+
+
+```{r include=FALSE}
+#### Gerando o painel não balanceado
+
+painel_df_inovacao <- pdata.frame(painel_inovacao, index = c("pais", "ano"), drop.index = TRUE, row.names = TRUE)
+head(painel_df_inovacao)
+```
+
+
+```{r include=FALSE}
+#### Variável dependente - número de patentes
+
+##### Regressão controlando efeitos fixos com modelo within 
+
+reg_pub_fe_np <- plm(log(n_patentes) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_inovacao, model = "within")
+
+stargazer::stargazer(reg_pub_fe_np, type = "text")
+``` 
+
+```{r include=FALSE}
+pFtest(reg_pb_fe_np, reg_pb_ols_np)
+```
+
+```{r include=FALSE}
+##### Regressão controlando efeitos aleatórios com modelo random
+
+reg_pub_re_np <- plm(log(n_patentes) ~  log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd, data = painel_df_inovacao, model = "random")
+
+
+stargazer::stargazer(reg_pub_re_np, type = "text")
+```
+
+```{r include=FALSE}
+
+##### Teste de Hausman
+
+phtest(reg_pub_fe_np, reg_pub_re_np)
+```
+
+
+```{r include=FALSE}
+#### Variável dependente - publicações por milhão de habitantes
+
+##### Regressão controlando efeitos fixos com modelo within 
+
+reg_pub_fe_pa <- plm(log(publicacoes_pop) ~ log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_inovacao, model = "within")
+
+stargazer::stargazer(reg_pub_fe_pa, type = "text")
+``` 
+
+
+```{r include=FALSE}
+pFtest(reg_pub_fe_pa, reg_pub_ols_pa)
+```
+
+
+```{r include=FALSE}
+##### Regressão controlando efeitos aleatórios com modelo random
+
+reg_pub_re_pa <- plm(log(publicacoes_pop) ~  log(pib_per_capita) + log(pesquisadores_pop) + gasto_privado_pd + gasto_publico_pd + gasto_edusu_pd + gastos_educ_pib, data = painel_df_inovacao, model = "random")
+
+
+stargazer::stargazer(reg_pub_re_pa, type = "text")
+```
+
+
+```{r include=FALSE}
+##### Teste de Hausman
+
+phtest(reg_pub_fe_pa, reg_pub_re_pa)
+```
+
+---
+
+### Comparação dos modelos com base no painel balanceado - variável dependente número de patentes 
+
+Os modelos implementados foram (1) Ordinary Least Squares; (2) Fixed effects using Least squares dummy variable; (3) Fixed effects using within method; (4) Random effects using random method.
+
+```{r echo=FALSE}
+stargazer::stargazer(reg_pb_ols_np, reg_pb_dfe_np, reg_pb_fe_np, reg_pb_re_np, 
+                     type = "text", 
+                     title = "Comparação de Modelos Implementados - P.B", 
+                     align = TRUE, 
+                     dep.var.labels = c("Número de Patentes"),
+                     covariate.labels = c("Log PIB per Capita", "Log Pesquisadores", 
+                                          "Gasto Privado em P&D", "Gasto Público em P&D", 
+                                          "Gasto E.S em P&D", "Gastos em Educação"),
+                     omit.stat = c("LL", "ser"))
+```
+
+---
+
+### Comparação dos modelos com base no painel balanceado - variável publicações por milhão de habitantes
+
+Os modelos implementados foram (1) Ordinary Least Squares; (2) Fixed effects using Least squares dummy variable; (3) Fixed effects using within method; (4) Random effects using random method.
+
+```{r echo=FALSE}
+stargazer::stargazer(reg_pb_ols_pa, reg_pb_dfe_pa, reg_pb_fe_pa, reg_pb_re_pa, 
+                     type = "text", 
+                     title = "Comparação de Modelos Implementados - P.B", 
+                     align = TRUE, 
+                     dep.var.labels = c("Publicações Acadêmicas"),
+                     covariate.labels = c("Log PIB per Capita", "Log Pesquisadores", 
+                                          "Gasto Privado em P&D", "Gasto Público em P&D", 
+                                          "Gasto E.S em P&D", "Gastos em Educação"),
+                     omit.stat = c("LL", "ser"))
+```
+
+---
+
+### Comparação dos modelos com base no painel não balanceado - variável dependente número de patentes 
+
+Os modelos implementados foram (1) Ordinary Least Squares; (2) Fixed effects using Least squares dummy variable; (3) Fixed effects using within method; (4) Random effects using random method.
+
+```{r echo=FALSE}
+stargazer::stargazer(reg_pub_ols_np, reg_pub_dfe_np, reg_pub_fe_np, reg_pub_re_np, 
+                     type = "text", 
+                     title = "Comparação de Modelos Implementados - P.N.B", 
+                     align = TRUE, 
+                     dep.var.labels = c("Número de Patentes"),
+                     covariate.labels = c("Log PIB per Capita", "Log Pesquisadores", 
+                                          "Gasto Privado em P&D", "Gasto Público em P&D", 
+                                          "Gasto E.S em P&D", "Gastos em Educação"),
+                     omit.stat = c("LL", "ser"))
+```
+
+---
+
+### Comparação dos modelos com base no painel não balanceado - variável publicações por milhão de habitantes
+
+Os modelos implementados foram (1) Ordinary Least Squares; (2) Fixed effects using Least squares dummy variable; (3) Fixed effects using within method; (4) Random effects using random method.
+
+```{r echo=FALSE}
+stargazer::stargazer(reg_pub_ols_pa, reg_pub_dfe_pa, reg_pub_fe_pa, reg_pub_re_pa, 
+                     type = "text", 
+                     title = "Comparação de Modelos Implementados - P..N.B", 
+                     align = TRUE, 
+                     dep.var.labels = c("Publicações Acadêmicas"),
+                     covariate.labels = c("Log PIB per Capita", "Log Pesquisadores", 
+                                          "Gasto Privado em P&D", "Gasto Público em P&D", 
+                                          "Gasto E.S em P&D", "Gastos em Educação"),
+                     omit.stat = c("LL", "ser"))
+```
+
+---
+
+# Conclusão
+
+Os resultados apresentados no painel balanceado com o uso de Mice apresentam resultados consistentes com a literatura. Considerando os testes implementados para escolha dos modelos, foi identificada a adequação dos modelos que controlam por efeitos fixos. Nessa linha, os efeitos associados as características específicas dos países, em linha com a teoria dos Sistemas Nacionais de Inovação se demonstraram altamente relevante para as variáveis dependentes.
+
+Considerando os modelos de efeitos fixos e tendo por variável dependente "Número de Patentes" as variáveis PIB per capita, número de pesquisadores e gastos privados em P&D apresentaram efeitos relevantes e significativos. Já tendo por base a variável dependente "Produção Acadêmica" adicionalmente se observou como significativa, em menor grau, a variável gastos públicos em P&D.
+
+Os resultados previamente alcançados se demonstram alinhados com a literatura, notadamente pelo fato do PIB per capita e da força de trabalho associada aos processos de inovação e P&D serem as principais variáveis explicativas dos outputs de inovação.
+
+Outrossim, os gastos privados em P&D despontam na literatura como o tipo de maior impacto nas variáveis dependentes aqui utilizadas. Já os gastos públicos e realizados pelas instituições de ensino superior apresentam resultados mistos. 
+
+Ressalta-se que os modelos aqui apresentados não são os definitivos, demandando avaliações quanto as especificações do modelo. Outrossim, testes para verificação de dependência das unidades analíticas, de correlação serial e de estacionariedade serão implementados.
+
+Por fim, será ainda avaliada e controlada a potencial heterocedasticidade do modelo
+
+
